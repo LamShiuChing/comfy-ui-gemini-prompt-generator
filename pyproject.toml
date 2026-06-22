@@ -1,0 +1,13 @@
+[project]
+name = "comfyui-gemini-prompt-builder"
+description = "Gemini captions a reference image into editable element boxes (tags + NL), merged with a master prompt — for ComfyUI character workflows."
+version = "1.0.0"
+license = { file = "LICENSE" }
+dependencies = ["google-genai"]
+
+[project.urls]
+Repository = "https://github.com/LamShiuChing/comfy-ui-gemini-prompt-generator"
+
+[tool.comfy]
+PublisherId = ""  # TODO: from your registry.comfy.org profile
+DisplayName = "Gemini Prompt Builder"
