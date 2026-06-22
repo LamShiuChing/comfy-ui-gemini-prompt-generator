@@ -25,14 +25,18 @@ _KEY_FILE = os.path.join(os.path.dirname(__file__), ".gemini_api_key")
 
 
 def _resolve_key(api_key: str) -> str:
-    """Field wins and is remembered; else last saved key; else env var."""
-    if key := api_key.strip():
-        os.close(os.open(_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
-        open(_KEY_FILE, "w").write(key)
-        return key
-    if os.path.isfile(_KEY_FILE):
-        return open(_KEY_FILE).read().strip()
-    return os.environ.get("GEMINI_API_KEY", "")
+    """Field, else GEMINI_API_KEY env, else the key build() last remembered.
+    Read-only: never persists, so the unauthenticated caption route can't poison it."""
+    return api_key.strip() or os.environ.get("GEMINI_API_KEY", "") or (
+        open(_KEY_FILE).read().strip() if os.path.isfile(_KEY_FILE) else ""
+    )
+
+
+def _remember_key(key: str) -> None:
+    """Persist the key owner-only so later sessions default to it. Delete
+    `.gemini_api_key` to clear. Called from build() (graph execution), not the route."""
+    with open(os.open(_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+        f.write(key)
 
 
 # ── Backend route: the JS "Caption image" button posts here ──────────────────
@@ -99,6 +103,8 @@ class GeminiPromptBuilder:
     CATEGORY = "gemini"
 
     def build(self, image, master_prepend, master_append, model, api_key, describe_nl, **kw):
+        if key := api_key.strip():
+            _remember_key(key)
         enabled = [k for k in ELEMENT_KEYS if kw.get(f"{k}_enabled", False)]
         parts = [master_prepend, *(kw.get(k, "") for k in enabled), master_append]
         positive = ", ".join(t.strip().strip(",") for t in parts if t and t.strip())
