@@ -7,6 +7,8 @@ comma-joined trained tokens; the node assembles the enabled boxes with the user'
 master prompt at run time.
 """
 
+import re
+
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
@@ -54,16 +56,36 @@ PROMPT = """You are labeling a reference photograph to build an SDXL/Anima-reali
 - `<box>_nl`: ONE vivid natural-language sentence describing that element. Leave it "" if the box doesn't apply.
 Leave any field "" when nothing applies.
 
+NEVER output the word "camera" (the model would draw a literal camera) — describe lens/photo style with the mm/format tokens instead.
+
 CRITICAL — the `character` box (both fields) is the ONLY place you may describe the subject's face, hair, body, age, or skin. EVERY OTHER box (tags AND sentence) must be subject-agnostic (no body/face words) so the prompt is reusable. Pronouns are fine.
 
 Boxes:
-- quality: overall technical quality + camera feel. Vocab: masterpiece, best quality, high quality, normal quality, low quality, worst quality | safe, suggestive, explicit | amateur snapshot, casual phone photo, social media selfie, candid photo, semi-professional, professional photograph, editorial photography, studio portrait | sharp focus, soft focus, grainy / high ISO, motion blur, overexposed, underexposed, lens flare, chromatic aberration, vignette | natural color, warm tones, cool tones, muted, vibrant, high contrast, film grain, film look, black and white, sepia, faded, teal and orange | phone camera, compact camera, DSLR, 85mm bokeh, 50mm, 35mm, wide-angle, fisheye, macro, film camera | shallow depth of field, deep focus. Judge honestly — do NOT default to high quality; an unedited phone snapshot is "normal quality"/"low quality".
+- quality: overall technical quality + photo feel. Vocab: masterpiece, best quality, high quality, normal quality, low quality, worst quality | safe, suggestive, explicit | amateur snapshot, candid photo, semi-professional, professional photograph, editorial photography, studio portrait | sharp focus, soft focus, grainy / high ISO, motion blur, overexposed, underexposed, lens flare, chromatic aberration, vignette | natural color, warm tones, cool tones, muted, vibrant, high contrast, film grain, film look, black and white, sepia, faded, teal and orange | 85mm bokeh, 50mm, 35mm, wide-angle, fisheye, macro | shallow depth of field, deep focus. Judge honestly — do NOT default to high quality; an unedited snapshot is "normal quality"/"low quality".
 - lighting: 1-2 tokens. Vocab: direct flash, natural daylight, golden hour, blue hour, overcast flat light, indoor artificial light, low light, soft window light, studio lighting, backlit, rim light, neon lighting, harsh sunlight, ring light, candlelight.
-- pose: framing + camera angle + body pose (arms/stance/head), NOT body shape. Vocab for crop/angle: extreme close-up, close-up, portrait, upper body, cowboy shot, full body, wide shot | front view, three-quarter view, profile view, back view, looking over shoulder, looking at viewer, looking away | eye level, from above, from below, overhead, dutch angle. Add pose tags like "hand on hip", "arms crossed", "leaning", "standing".
+- pose: framing + view angle + body pose (arms/stance/head), NOT body shape. Vocab for crop/angle: extreme close-up, close-up, portrait, upper body, cowboy shot, full body, wide shot | front view, three-quarter view, profile view, back view, looking over shoulder, looking at viewer, looking away | eye level, from above, from below, overhead, dutch angle. Add pose tags like "hand on hip", "arms crossed", "leaning", "standing".
 - clothes: clothing + accessories tokens (garments, materials, colors, jewelry, eyewear, shoes). No body description.
 - background: setting + environment. Vocab: bedroom, living room, kitchen, bathroom, studio, office, city street, nature, beach, pool, cafe, restaurant, bar, gym, car, party. Add scene/prop tokens.
 - character: the subject's visible appearance — face, hair, body type, skin, age, expression. This box (and only this box) describes the person.
 - extra: any other salient tokens not covered above (objects held, text/watermark, notable details)."""
+
+
+_CAMERA = re.compile(r"ca(?:mera|mear)", re.IGNORECASE)
+
+
+def _strip_camera(elements: dict) -> dict:
+    """Drop any 'camera'/'camear' wording so SDXL doesn't render a literal camera.
+    Token boxes lose the whole offending token; NL sentences lose just the word."""
+    out = {}
+    for key, val in elements.items():
+        if key.endswith("_nl"):
+            val = _CAMERA.sub("", val)
+            val = re.sub(r"\s+([,.])", r"\1", val)
+            val = re.sub(r"\s{2,}", " ", val).strip()
+        else:
+            val = ", ".join(t for t in (p.strip() for p in val.split(",")) if t and not _CAMERA.search(t))
+        out[key] = val
+    return out
 
 
 def caption_image(image_bytes: bytes, mime_type: str, api_key: str, model: str) -> dict:
@@ -88,4 +110,4 @@ def caption_image(image_bytes: bytes, mime_type: str, api_key: str, model: str) 
         ),
     )
     parsed = CaptionElements.model_validate_json(response.text)
-    return parsed.model_dump()
+    return _strip_camera(parsed.model_dump())
