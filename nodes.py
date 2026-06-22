@@ -27,6 +27,7 @@ _KEY_FILE = os.path.join(os.path.dirname(__file__), ".gemini_api_key")
 def _resolve_key(api_key: str) -> str:
     """Field wins and is remembered; else last saved key; else env var."""
     if key := api_key.strip():
+        os.close(os.open(_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
         open(_KEY_FILE, "w").write(key)
         return key
     if os.path.isfile(_KEY_FILE):
