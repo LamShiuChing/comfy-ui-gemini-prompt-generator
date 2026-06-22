@@ -46,8 +46,8 @@ CaptionElements = create_model(
 # Allowed vocab per box — the exact enum tokens the Anima/SDXL realism finetune was
 # trained on (mirrors portrait-prompt-extractor VOCAB), inlined as guidance.
 PROMPT = """You are labeling a reference photograph to build an SDXL/Anima-realism prompt. Break the image into the element boxes below. For EACH box produce two fields:
-- `<box>`: a DETAILED comma-separated list of trained tokens (lowercase) — be thorough, 6-15 precise tokens where the image supports it (materials, colors, patterns, props, framing), not just 1-2. Use the suggested vocabulary where it fits and add concrete extra tokens.
-- `<box>_nl`: ONE vivid natural-language sentence describing that element. Leave it "" if the box doesn't apply.
+- `<box>`: a comma-separated list of trained tokens (lowercase) drawn from the suggested vocabulary plus concrete extra tokens (materials, colors, patterns, props, framing). How many tokens depends on the DETAIL LEVEL below.
+- `<box>_nl`: a direct descriptive phrase for that element — NO reporting framing (never "her only accessories are…", "she is wearing…", "the image shows…", "visible in the photo…"); just name it, e.g. "small pearl stud earrings". Length depends on the DETAIL LEVEL below.
 Leave any field "" when nothing applies.
 
 NEVER output the word "camera" (the model would draw a literal camera) — describe lens/photo style with the mm/format tokens instead.
@@ -69,6 +69,17 @@ Boxes:
 - extra: any other salient tokens not covered above (objects held, text/watermark, notable details)."""
 
 
+# How verbose every box gets — appended to PROMPT per the node's `detail` dropdown.
+DETAIL_LEVELS = {
+    "minimal": "DETAIL LEVEL = minimal: only the single most essential token per box (1-2 max); `_nl` a 2-4 word fragment or \"\".",
+    "low": "DETAIL LEVEL = low: ~3-5 key tokens per box; `_nl` one short clause.",
+    "medium": "DETAIL LEVEL = medium: ~6-10 tokens per box; `_nl` one sentence.",
+    "high": "DETAIL LEVEL = high: ~10-15 precise tokens per box; `_nl` one rich sentence.",
+    "max": "DETAIL LEVEL = max: every token the image supports (15+) — exhaustive materials, colors, patterns, props; `_nl` two detailed sentences.",
+}
+DETAIL_DEFAULT = "high"
+
+
 _CAMERA = re.compile(r"ca(?:mera|mear)", re.IGNORECASE)
 
 
@@ -87,9 +98,10 @@ def _strip_camera(elements: dict) -> dict:
     return out
 
 
-def caption_image(image_bytes: bytes, mime_type: str, api_key: str, model: str) -> dict:
+def caption_image(image_bytes: bytes, mime_type: str, api_key: str, model: str, detail: str) -> dict:
     """Call Gemini and return {element_key: comma_token_string} for every box."""
     client = genai.Client(api_key=api_key)
+    prompt = f"{PROMPT}\n\n{DETAIL_LEVELS.get(detail, DETAIL_LEVELS[DETAIL_DEFAULT])}"
     response = client.models.generate_content(
         model=model or MODEL_DEFAULT,
         contents=[
@@ -97,7 +109,7 @@ def caption_image(image_bytes: bytes, mime_type: str, api_key: str, model: str) 
                 role="user",
                 parts=[
                     types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                    types.Part.from_text(text=PROMPT),
+                    types.Part.from_text(text=prompt),
                 ],
             )
         ],

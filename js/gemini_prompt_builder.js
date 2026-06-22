@@ -27,6 +27,7 @@ app.registerExtension({
           body.append("image", image);
           body.append("api_key", get("api_key")?.value ?? "");
           body.append("model", get("model")?.value ?? "");
+          body.append("detail", get("detail")?.value ?? "");
           const res = await api.fetchApi("/gemini_prompt_builder/caption", { method: "POST", body });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || res.statusText);

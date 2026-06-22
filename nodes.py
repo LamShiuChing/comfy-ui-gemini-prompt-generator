@@ -18,7 +18,7 @@ import folder_paths
 from server import PromptServer
 from aiohttp import web
 
-from .gemini import caption_image, ELEMENTS, ELEMENT_KEYS, MODEL_DEFAULT
+from .gemini import caption_image, ELEMENTS, ELEMENT_KEYS, MODEL_DEFAULT, DETAIL_LEVELS, DETAIL_DEFAULT
 
 
 _KEY_FILE = os.path.join(os.path.dirname(__file__), ".gemini_api_key")
@@ -46,6 +46,7 @@ async def _caption_route(request):
     image = data.get("image", "")
     api_key = _resolve_key(data.get("api_key", ""))
     model = data.get("model", "") or MODEL_DEFAULT
+    detail = data.get("detail", "") or DETAIL_DEFAULT
     if not api_key:
         return web.json_response({"error": "No API key (set GEMINI_API_KEY or the api_key field)."}, status=400)
 
@@ -60,7 +61,7 @@ async def _caption_route(request):
     try:
         # genai client is sync; run off the event loop.
         result = await asyncio.get_event_loop().run_in_executor(
-            None, caption_image, raw, mime, api_key, model
+            None, caption_image, raw, mime, api_key, model, detail
         )
     except Exception as e:  # surface the real error to the UI
         return web.json_response({"error": str(e)}, status=500)
@@ -92,6 +93,7 @@ class GeminiPromptBuilder:
             required[f"{key}_nl"] = box()
             required[f"{key}_enabled"] = ("BOOLEAN", {"default": on})
         required["describe_nl"] = ("BOOLEAN", {"default": True})
+        required["detail"] = (list(DETAIL_LEVELS), {"default": DETAIL_DEFAULT})
         required["master_append"] = ("STRING", {"multiline": True, "default": ""})
         required["model"] = ("STRING", {"default": MODEL_DEFAULT})
         required["api_key"] = ("STRING", {"default": ""})
