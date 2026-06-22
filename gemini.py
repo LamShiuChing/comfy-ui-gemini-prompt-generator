@@ -2,51 +2,43 @@
 
 Mirrors the Anima v10 tag rubric used by ../portrait-prompt-extractor, but groups
 the tokens into the editable element boxes the node exposes (quality / lighting /
-pose / clothes / background / character / extra). Gemini fills each box with
+pose / body / clothes / accessories / tattoos / background / character / extra).
+Gemini fills each box with
 comma-joined trained tokens; the node assembles the enabled boxes with the user's
 master prompt at run time.
 """
 
 import re
 
-from pydantic import BaseModel
+from pydantic import create_model
 from google import genai
 from google.genai import types
 
 MODEL_DEFAULT = "gemini-3-flash-preview"  # same model the web extractor uses
 
-# Element boxes the node shows, in final assembly order. `default_on=False` for
-# `character` because the subject identity comes from the master prompt.
+# Element boxes the node shows, in final assembly order. `default_on=False` for the
+# identity boxes (character/body/tattoos) — that detail comes from the master prompt,
+# so they stay off until the user opts to pull it from the reference.
 ELEMENTS = [
     ("quality", True),
     ("lighting", True),
     ("pose", True),
+    ("body", False),
     ("clothes", True),
+    ("accessories", True),
+    ("tattoos", False),
     ("background", True),
     ("character", False),
     ("extra", True),
 ]
 ELEMENT_KEYS = [k for k, _ in ELEMENTS]
 
-
-class CaptionElements(BaseModel):
-    """Per element box: a comma-joined tag string + one natural-language sentence
-    (`{key}_nl`). Empty strings when nothing fits."""
-
-    quality: str
-    quality_nl: str
-    lighting: str
-    lighting_nl: str
-    pose: str
-    pose_nl: str
-    clothes: str
-    clothes_nl: str
-    background: str
-    background_nl: str
-    character: str
-    character_nl: str
-    extra: str
-    extra_nl: str
+# Per box: a comma-joined tag string + one natural-language sentence (`{key}_nl`).
+# Built from ELEMENT_KEYS so splitting a box only needs the list above + the JS copy.
+CaptionElements = create_model(
+    "CaptionElements",
+    **{f: (str, ...) for k in ELEMENT_KEYS for f in (k, f"{k}_nl")},
+)
 
 
 # Allowed vocab per box — the exact enum tokens the Anima/SDXL realism finetune was
@@ -58,15 +50,18 @@ Leave any field "" when nothing applies.
 
 NEVER output the word "camera" (the model would draw a literal camera) — describe lens/photo style with the mm/format tokens instead.
 
-CRITICAL — the `character` box (both fields) is the ONLY place you may describe the subject's face, hair, body, age, or skin. EVERY OTHER box (tags AND sentence) must be subject-agnostic (no body/face words) so the prompt is reusable. Pronouns are fine.
+CRITICAL — only the `character`, `body`, and `tattoos` boxes may describe the subject's face, hair, body shape, skin, age, or markings, each ONLY its own slice (face/hair/skin in `character`, build/proportions in `body`, ink/piercings/scars in `tattoos`). EVERY OTHER box (tags AND sentence) must be subject-agnostic (no body/face words) so the prompt is reusable. Pronouns are fine.
 
 Boxes:
 - quality: overall technical quality + photo feel. Vocab: masterpiece, best quality, high quality, normal quality, low quality, worst quality | safe, suggestive, explicit | amateur snapshot, candid photo, semi-professional, professional photograph, editorial photography, studio portrait | sharp focus, soft focus, grainy / high ISO, motion blur, overexposed, underexposed, lens flare, chromatic aberration, vignette | natural color, warm tones, cool tones, muted, vibrant, high contrast, film grain, film look, black and white, sepia, faded, teal and orange | 85mm bokeh, 50mm, 35mm, wide-angle, fisheye, macro | shallow depth of field, deep focus. Judge honestly — do NOT default to high quality; an unedited snapshot is "normal quality"/"low quality".
 - lighting: 1-2 tokens. Vocab: direct flash, natural daylight, golden hour, blue hour, overcast flat light, indoor artificial light, low light, soft window light, studio lighting, backlit, rim light, neon lighting, harsh sunlight, ring light, candlelight.
 - pose: framing + view angle + body pose (arms/stance/head), NOT body shape. Vocab for crop/angle: extreme close-up, close-up, portrait, upper body, cowboy shot, full body, wide shot | front view, three-quarter view, profile view, back view, looking over shoulder, looking at viewer, looking away | eye level, from above, from below, overhead, dutch angle. Add pose tags like "hand on hip", "arms crossed", "leaning", "standing".
-- clothes: clothing + accessories tokens (garments, materials, colors, jewelry, eyewear, shoes). No body description.
+- body: the subject's body shape ONLY — build/frame, proportions, height impression, weight class, bust/waist/hip impression, muscle tone. NO clothes, NO face/hair, NO tattoos. Leave "" to keep the body from the master prompt.
+- clothes: worn GARMENTS only — tops, bottoms, dresses, outerwear, lingerie, swimwear, footwear, with materials, colors, patterns, fit. NO jewelry/accessories, NO body description.
+- accessories: non-garment worn items — jewelry (rings, necklace, earrings, bracelet, anklet, watch), eyewear, hats, belts, bags, gloves, hair accessories. NO clothes, NO body.
+- tattoos: body modification ONLY — tattoos (placement + motif), piercings, scars, body markings, nail art. Leave "" if none visible.
 - background: setting + environment. Vocab: bedroom, living room, kitchen, bathroom, studio, office, city street, nature, beach, pool, cafe, restaurant, bar, gym, car, party. Add scene/prop tokens.
-- character: the subject's visible appearance — face, hair, body type, skin, age, expression. This box (and only this box) describes the person.
+- character: the subject's face, hair, skin, age, expression — NOT body shape (use `body`), NOT tattoos (use `tattoos`).
 - extra: any other salient tokens not covered above (objects held, text/watermark, notable details)."""
 
 
