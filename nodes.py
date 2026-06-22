@@ -21,8 +21,17 @@ from aiohttp import web
 from .gemini import caption_image, ELEMENTS, ELEMENT_KEYS, MODEL_DEFAULT
 
 
+_KEY_FILE = os.path.join(os.path.dirname(__file__), ".gemini_api_key")
+
+
 def _resolve_key(api_key: str) -> str:
-    return api_key.strip() or os.environ.get("GEMINI_API_KEY", "")
+    """Field wins and is remembered; else last saved key; else env var."""
+    if key := api_key.strip():
+        open(_KEY_FILE, "w").write(key)
+        return key
+    if os.path.isfile(_KEY_FILE):
+        return open(_KEY_FILE).read().strip()
+    return os.environ.get("GEMINI_API_KEY", "")
 
 
 # ── Backend route: the JS "Caption image" button posts here ──────────────────
