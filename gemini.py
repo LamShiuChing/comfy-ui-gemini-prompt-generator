@@ -2,8 +2,8 @@
 
 Mirrors the Anima v10 tag rubric used by ../portrait-prompt-extractor, but groups
 the tokens into the editable element boxes the node exposes (quality / lighting /
-pose / body / clothes / accessories / tattoos / background / character / extra).
-Gemini fills each box with
+pose / action / interaction / body / clothes / accessories / tattoos / background /
+character / extra). Gemini fills each box with
 comma-joined trained tokens; the node assembles the enabled boxes with the user's
 master prompt at run time.
 """
@@ -23,6 +23,8 @@ ELEMENTS = [
     ("quality", True),
     ("lighting", True),
     ("pose", True),
+    ("action", True),
+    ("interaction", True),
     ("body", False),
     ("clothes", True),
     ("accessories", True),
@@ -55,7 +57,9 @@ CRITICAL — only the `character`, `body`, and `tattoos` boxes may describe the 
 Boxes:
 - quality: overall technical quality + photo feel. Vocab: masterpiece, best quality, high quality, normal quality, low quality, worst quality | safe, suggestive, explicit | amateur snapshot, candid photo, semi-professional, professional photograph, editorial photography, studio portrait | sharp focus, soft focus, grainy / high ISO, motion blur, overexposed, underexposed, lens flare, chromatic aberration, vignette | natural color, warm tones, cool tones, muted, vibrant, high contrast, film grain, film look, black and white, sepia, faded, teal and orange | 85mm bokeh, 50mm, 35mm, wide-angle, fisheye, macro | shallow depth of field, deep focus. Judge honestly — do NOT default to high quality; an unedited snapshot is "normal quality"/"low quality".
 - lighting: 1-2 tokens. Vocab: direct flash, natural daylight, golden hour, blue hour, overcast flat light, indoor artificial light, low light, soft window light, studio lighting, backlit, rim light, neon lighting, harsh sunlight, ring light, candlelight.
-- pose: framing + view angle + body pose (arms/stance/head), NOT body shape. Vocab for crop/angle: extreme close-up, close-up, portrait, upper body, cowboy shot, full body, wide shot | front view, three-quarter view, profile view, back view, looking over shoulder, looking at viewer, looking away | eye level, from above, from below, overhead, dutch angle. Add pose tags like "hand on hip", "arms crossed", "leaning", "standing".
+- pose: framing + view angle + STATIC body pose (stance/arms/head position), NOT body shape, NOT what they're doing. Vocab for crop/angle: extreme close-up, close-up, portrait, upper body, cowboy shot, full body, wide shot | front view, three-quarter view, profile view, back view, looking over shoulder, looking at viewer, looking away | eye level, from above, from below, overhead, dutch angle. Add pose tags like "hand on hip", "arms crossed", "standing", "sitting", "kneeling", "lying down".
+- action: what the subject is actively DOING — verbs/motion (walking, running, dancing, jumping, stretching, eating, drinking, reading, applying makeup, undressing). Leave "" if static/just posing.
+- interaction: contact with objects, people, or the environment — holding/using a prop, leaning on a wall, sitting on a chair, hand on a table, hugging/touching someone. Name the object/surface. Leave "" if none.
 - body: the subject's body shape ONLY — build/frame, proportions, height impression, weight class, bust/waist/hip impression, muscle tone. NO clothes, NO face/hair, NO tattoos. Leave "" to keep the body from the master prompt.
 - clothes: worn GARMENTS only — tops, bottoms, dresses, outerwear, lingerie, swimwear, footwear, with materials, colors, patterns, fit. NO jewelry/accessories, NO body description.
 - accessories: non-garment worn items — jewelry (rings, necklace, earrings, bracelet, anklet, watch), eyewear, hats, belts, bags, gloves, hair accessories. NO clothes, NO body.

@@ -2,7 +2,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
 // Must match ELEMENT_KEYS in gemini.py.
-const ELEMENT_KEYS = ["quality", "lighting", "pose", "body", "clothes", "accessories", "tattoos", "background", "character", "extra"];
+const ELEMENT_KEYS = ["quality", "lighting", "pose", "action", "interaction", "body", "clothes", "accessories", "tattoos", "background", "character", "extra"];
 
 app.registerExtension({
   name: "comfy.GeminiPromptBuilder",
