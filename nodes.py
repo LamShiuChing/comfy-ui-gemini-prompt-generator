@@ -99,8 +99,10 @@ class GeminiPromptBuilder:
         required["api_key"] = ("STRING", {"default": ""})
         return {"required": required}
 
-    RETURN_TYPES = ("STRING", "STRING", "IMAGE")
-    RETURN_NAMES = ("positive", "nl", "image")
+    # Per-box outputs (tags + NL for every element) so any box can feed another node.
+    _BOX_NAMES = tuple(n for k in ELEMENT_KEYS for n in (k, f"{k}_nl"))
+    RETURN_TYPES = ("STRING", "STRING", "IMAGE") + ("STRING",) * len(_BOX_NAMES)
+    RETURN_NAMES = ("positive", "nl", "image") + _BOX_NAMES
     FUNCTION = "build"
     CATEGORY = "gemini"
 
@@ -113,7 +115,8 @@ class GeminiPromptBuilder:
         nl = ""
         if describe_nl:
             nl = " ".join(s.strip() for k in enabled if (s := kw.get(f"{k}_nl", "")).strip())
-        return (positive, nl, _load_image_tensor(image))
+        boxes = tuple(kw.get(n, "") for n in self._BOX_NAMES)
+        return (positive, nl, _load_image_tensor(image), *boxes)
 
 
 NODE_CLASS_MAPPINGS = {"GeminiPromptBuilder": GeminiPromptBuilder}

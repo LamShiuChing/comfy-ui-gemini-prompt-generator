@@ -28,7 +28,7 @@ into one positive string. Same Anima/SDXL tag rubric as `../portrait-prompt-extr
 4. Edit any box; untick the toggle to drop a box. `character` is **off** by default
    (your master prompt owns the identity — turn it on per-image if you want it).
 5. Put your trigger/character master prompt in `master_prepend` (e.g.
-   `score_9, reiko, …`) and any trailing boosters in `master_append`.
+   `score_9, <your_character>, …`) and any trailing boosters in `master_append`.
 6. Wire `positive` into your CLIPTextEncode. `image` is an optional passthrough so
    the same reference can feed your ControlNet/loader.
 
