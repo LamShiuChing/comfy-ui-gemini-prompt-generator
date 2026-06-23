@@ -15,9 +15,12 @@ app.registerExtension({
       const node = this;
       const get = (name) => node.widgets.find((w) => w.name === name);
 
-      const btn = node.addWidget("button", "Caption image", null, async () => {
+      let busy = false;
+      const caption = async (notify) => {
         const image = get("image")?.value;
-        if (!image) return alert("Pick a reference image first.");
+        if (!image) return notify ? alert("Pick a reference image first.") : undefined;
+        if (busy) return;
+        busy = true;
 
         const label = btn.name;
         btn.name = "Captioning…";
@@ -39,12 +42,30 @@ app.registerExtension({
           }
           node.setDirtyCanvas(true, true);
         } catch (e) {
-          alert("Caption failed: " + e.message);
+          if (notify) alert("Caption failed: " + e.message);
         } finally {
           btn.name = label;
+          busy = false;
           node.setDirtyCanvas(true, true);
         }
-      });
+      };
+
+      const btn = node.addWidget("button", "Caption image", null, () => caption(true));
+
+      // Auto-caption when a new image is uploaded/selected.
+      const imageWidget = get("image");
+      if (imageWidget) {
+        const prevCb = imageWidget.callback;
+        let last = imageWidget.value;
+        imageWidget.callback = function () {
+          const r = prevCb?.apply(this, arguments);
+          if (imageWidget.value !== last) {
+            last = imageWidget.value;
+            caption(false);
+          }
+          return r;
+        };
+      }
 
       // Keep the button near the top, just under the image widget.
       node.widgets.splice(node.widgets.indexOf(btn), 1);
